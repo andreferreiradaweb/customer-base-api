@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Knex from '../database/connection';
 
-class PointsController {
+class ClientsController {
     async index(req: Request, res: Response) {
         const { city, uf, items } = req.query;
 
@@ -9,24 +9,24 @@ class PointsController {
         .split(',')
         .map(item => Number(item.trim()));
 
-        const points = await Knex('points')
-        .join('point_items', 'points.id', '=', 'point_items.point_id')
-        .whereIn('point_items.item_id', parsedItems)
+        const clients = await Knex('clients')
+        .join('client_items', 'clients.id', '=', 'client_items.client_id')
+        .whereIn('client_items.item_id', parsedItems)
         .where('city', String(city))
         .where('uf', String(uf))
         .distinct()
-        .select('points.*');
+        .select('clients.*');
 
-        return res.json(points);
+        return res.json(clients);
     }
     
     async show(req: Request, res: Response) {
         const { id } = req.params;
 
-        const point = await Knex('points').where('id', id).first();
+        const client = await Knex('clients').where('id', id).first();
 
-        if(!point) {
-            return res.status(400).json({message: 'Point not found!'})
+        if(!client) {
+            return res.status(400).json({message: 'Client not found!'})
         }
 
         /*
@@ -36,11 +36,11 @@ class PointsController {
         */
 
         const items = await Knex('items')
-        .join('point_items', 'items.id', '=', 'point_items.item_id')
-        .where('point_items.point_id', id)
-        .select('items.title');
+        .join('client_items', 'items.id', '=', 'client_items.item_id')
+        .where('client_items.client_id', id)
+        .select('items.title', 'items.preco');
 
-        return res.json({point, items});
+        return res.json({client, items});
     }
 
     async create(req: Request, res: Response) {
@@ -48,8 +48,7 @@ class PointsController {
             name,
             email,
             whatsapp,
-            latitude,
-            longitude,
+            address,
             city,
             uf,
             items
@@ -57,37 +56,35 @@ class PointsController {
 
         const trx = await Knex.transaction();
 
-        const point = {
-            image: "https://images.unsplash.com/photo-1580913428023-02c695666d61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=60",
+        const client = {
             name,
             email,
             whatsapp,
-            latitude,
-            longitude,
+            address,
             city,
             uf
         }
 
-        const insertedids = await trx('points').insert(point);
+        const insertedids = await trx('clients').insert(client);
 
-        const point_id = insertedids[0];
+        const client_id = insertedids[0];
 
-        const pointItems = items.map((item_id: number) => {
+        const clientItems = items.map((item_id: number) => {
             return {
                 item_id,
-                point_id
+                client_id
             };
         });
 
-        await trx('point_items').insert(pointItems);
+        await trx('client_items').insert(clientItems);
 
         await trx.commit();
 
         return res.json({
-            id: point_id,
-            ...point,
+            id: client_id,
+            ...client,
         });
     }
 }
 
-export default PointsController;
+export default ClientsController;
